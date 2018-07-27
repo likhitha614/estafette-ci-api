@@ -15,6 +15,7 @@ To start development run
 ```bash
 git clone git@github.com:estafette/estafette-ci-api.git
 cd estafette-ci-api
+go get -u google.golang.org/grpc
 ```
 
 Before committing your changes run

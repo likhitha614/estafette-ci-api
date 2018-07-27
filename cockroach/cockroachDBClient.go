@@ -688,7 +688,7 @@ func (dbc *cockroachDBClientImpl) GetPipelineBuildLogs(repoSource, repoOwner, re
 
 	var stepsData []uint8
 
-	if err = rows.Scan(&buildLog.ID, &buildLog.RepoSource, &buildLog.RepoOwner, &buildLog.RepoName, &buildLog.RepoBranch, &buildLog.RepoRevision, &stepsData, &buildLog.InsertedAt); err != nil {
+	if err = rows.Scan(&buildLog.Id, &buildLog.RepoSource, &buildLog.RepoOwner, &buildLog.RepoName, &buildLog.RepoBranch, &buildLog.RepoRevision, &stepsData, &buildLog.InsertedAt); err != nil {
 		return
 	}
 

@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	stdlog "log"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -11,7 +12,11 @@ import (
 	"syscall"
 	"time"
 
+	contracts "github.com/estafette/estafette-ci-contracts"
 	"github.com/estafette/estafette-ci-crypt"
+	empty "github.com/golang/protobuf/ptypes/empty"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/reflection"
 
 	"github.com/alecthomas/kingpin"
 	"github.com/estafette/estafette-ci-api/bitbucket"
@@ -264,5 +269,54 @@ func handleRequests(stopChannel <-chan struct{}, waitGroup *sync.WaitGroup) *htt
 		}
 	}()
 
+	// start grpc server
+	startGRPCServer(cockroachDBClient)
+
 	return srv
+}
+
+type estafetteCiAPIServer struct {
+	cockroachDBClient cockroach.DBClient
+}
+
+func startGRPCServer(cockroachDBClient cockroach.DBClient) {
+	// set up tcp listener
+	lis, err := net.Listen("tcp", ":50051")
+	if err != nil {
+		log.Fatal().Err(err).Msg("Failed to listen")
+	}
+
+	// create grpc server
+	s := grpc.NewServer()
+	contracts.RegisterEstafetteCiApiServer(s, &estafetteCiAPIServer{cockroachDBClient: cockroachDBClient})
+
+	// register reflection service on gRPC server.
+	reflection.Register(s)
+
+	// start server
+	if err := s.Serve(lis); err != nil {
+		log.Fatal().Err(err).Msg("Failed to serve")
+	}
+}
+
+func (s *estafetteCiAPIServer) CreatePipelineBuildLogs(ctx context.Context, buildLog *contracts.BuildLog) (*empty.Empty, error) {
+
+	// authorizationHeader := c.GetHeader("Authorization")
+	// if authorizationHeader != fmt.Sprintf("Bearer %v", h.config.APIKey) {
+	// 	log.Error().
+	// 		Str("authorizationHeader", authorizationHeader).
+	// 		Msg("Authorization header for Estafette v2 logs is incorrect")
+	// 	c.String(http.StatusUnauthorized, "Authorization failed")
+	// 	return
+	// }
+
+	err := s.cockroachDBClient.InsertBuildLog(*buildLog)
+	if err != nil {
+		log.Error().Err(err).
+			Msgf("Failed inserting grpc v2 logs for %v/%v/%v/%v", buildLog.RepoSource, buildLog.RepoOwner, buildLog.RepoName, buildLog.RepoRevision)
+
+		return nil, err
+	}
+
+	return &empty.Empty{}, nil
 }
